@@ -21,4 +21,5 @@ contextBridge.exposeInMainWorld('api', {
     },
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     openFolder: (path: string) => ipcRenderer.invoke('open-folder', path),
+    restoreBackup: (filePath: string, targetConnection: any) => ipcRenderer.invoke('restore-backup', filePath, targetConnection),
 });

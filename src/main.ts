@@ -6,6 +6,7 @@ import { DatabaseConnection, BackupSchedule } from './types/index';
 import { testConnection } from './services/db.service';
 import { initializeScheduler, registerSchedule, cancelSchedule } from './services/scheduler.service';
 import { performBackup } from './services/backup.service';
+import { restoreBackup } from './services/restore.service';
 import { randomUUID } from 'node:crypto';
 
 // Global references to prevent garbage collection
@@ -145,6 +146,15 @@ ipcMain.handle('delete-schedule', (_, id: string) => {
 ipcMain.handle('run-backup', async (_, schedule: BackupSchedule) => {
   try {
     await performBackup(schedule);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('restore-backup', async (_, filePath: string, targetConnection: DatabaseConnection) => {
+  try {
+    await restoreBackup(filePath, targetConnection);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

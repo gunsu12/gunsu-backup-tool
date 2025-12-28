@@ -21,6 +21,7 @@ export interface IElectronAPI {
     };
     selectFolder: () => Promise<string | null>;
     openFolder: (path: string) => Promise<void>;
+    restoreBackup: (filePath: string, targetConnection: DatabaseConnection) => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {
