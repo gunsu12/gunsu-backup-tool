@@ -18,7 +18,8 @@ const Schedules = () => {
         dayOfMonth: 1,
         backupPath: '',
         enabled: true,
-        retentionDays: 7
+        retentionDays: 7,
+        compress: true
     });
 
     useEffect(() => {
@@ -53,7 +54,8 @@ const Schedules = () => {
             dayOfMonth: schedule.dayOfMonth || 1,
             backupPath: schedule.backupPath,
             enabled: schedule.enabled,
-            retentionDays: schedule.retentionDays || 0
+            retentionDays: schedule.retentionDays || 0,
+            compress: schedule.compress || false
         });
         setShowForm(true);
     };
@@ -141,7 +143,8 @@ const Schedules = () => {
             dayOfMonth: 1,
             backupPath: '',
             enabled: true,
-            retentionDays: 7
+            retentionDays: 7,
+            compress: true
         });
     };
 
@@ -351,6 +354,18 @@ const Schedules = () => {
                                     />
                                 </div>
                             </div>
+                            <div className="flex items-center gap-2 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="compress"
+                                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-blue-600 outline-none"
+                                    checked={formData.compress}
+                                    onChange={e => setFormData({ ...formData, compress: e.target.checked })}
+                                />
+                                <label htmlFor="compress" className="text-sm font-medium text-gray-400 cursor-pointer select-none">
+                                    Compress Backup (ZIP)
+                                </label>
+                            </div>
                             <div className="pt-4 flex justify-end gap-3">
                                 <button
                                     type="button"
@@ -439,8 +454,11 @@ const Schedules = () => {
                                     <FolderOpen size={14} />
                                     <span className="truncate">{schedule.backupPath}</span>
                                 </button>
-                                <div className="text-xs text-gray-500 mt-2">
-                                    Connection: {getConnectionName(schedule.connectionId)}
+                                <div className="text-xs text-gray-500 mt-2 flex justify-between items-center">
+                                    <span>Connection: {getConnectionName(schedule.connectionId)}</span>
+                                    {schedule.compress && (
+                                        <span className="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">ZIP</span>
+                                    )}
                                 </div>
                             </div>
                         </div>

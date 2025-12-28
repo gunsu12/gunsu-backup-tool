@@ -53,5 +53,8 @@ The application will automatically detect these files and use them without any m
 -   **Storage**: `electron-store` for persistent configuration and history.
 -   **Scheduling**: `node-schedule` for cron-based automation.
 
+## 📄 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ---
 Built with ❤️ for reliable data protection.

@@ -23,5 +23,6 @@ export interface BackupSchedule {
     backupPath: string;
     enabled: boolean;
     retentionDays: number; // How many days to keep backups (0 = keep forever)
+    compress: boolean;
     createdAt: number;
 }

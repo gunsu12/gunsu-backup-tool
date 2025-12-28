@@ -34,14 +34,47 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
     console.log(`Backing up to: ${backupFile}`);
 
     try {
+        let finalBackupPath = backupFile;
+
         if (connection.type === 'mysql') {
             await backupMySQL(connection, backupFile);
         } else if (connection.type === 'postgres') {
             await backupPostgreSQL(connection, backupFile);
         } else if (connection.type === 'mongodb') {
+            const mongodbDir = path.join(schedule.backupPath, `mongodb_${timestamp}`);
             await backupMongoDB(connection, schedule.backupPath, timestamp);
+            finalBackupPath = mongodbDir;
         } else {
             throw new Error(`Unsupported database type: ${connection.type}`);
+        }
+
+        // Handle compression
+        if (schedule.compress) {
+            console.log(`Compressing backup: ${finalBackupPath}`);
+            const AdmZip = require('adm-zip');
+            const zip = new AdmZip();
+
+            const zipFilename = (connection.type === 'mongodb' ? `mongodb_${timestamp}` : `${connection.database}_${timestamp}.sql`) + '.zip';
+            const zipPath = path.join(schedule.backupPath, zipFilename);
+
+            const stats = await fs.stat(finalBackupPath);
+            if (stats.isDirectory()) {
+                zip.addLocalFolder(finalBackupPath);
+            } else {
+                zip.addLocalFile(finalBackupPath);
+            }
+
+            zip.writeZip(zipPath);
+
+            // Delete original file/folder after compression
+            if (stats.isDirectory()) {
+                await fs.rm(finalBackupPath, { recursive: true, force: true });
+            } else {
+                await fs.unlink(finalBackupPath);
+            }
+
+            finalBackupPath = zipPath;
+            console.log(`Compression completed: ${zipPath}`);
         }
 
         // Save to history
@@ -50,13 +83,13 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
             id: `${Date.now()}-${Math.random()}`,
             scheduleId: schedule.id,
             connectionId: connection.id,
-            backupFile,
+            backupFile: finalBackupPath,
             timestamp: Date.now(),
             status: 'success',
             size: 0 // TODO: Get actual file size
         }, ...history]);
 
-        console.log(`Backup completed successfully: ${backupFile}`);
+        console.log(`Backup completed successfully: ${finalBackupPath}`);
     } catch (error) {
         console.error('Backup failed:', error);
 
@@ -149,8 +182,8 @@ export const cleanupOldBackups = async (schedule: BackupSchedule): Promise<void>
                 const fileAge = now - stats.mtimeMs;
 
                 if (fileAge > retentionMs) {
-                    // Check if it's a backup file (ends with .sql or is a mongodb backup directory)
-                    if (file.endsWith('.sql') || file.startsWith('mongodb_')) {
+                    // Check if it's a backup file (ends with .sql, .zip or is a mongodb backup directory)
+                    if (file.endsWith('.sql') || file.endsWith('.zip') || file.startsWith('mongodb_')) {
                         if (stats.isDirectory()) {
                             await fs.rm(filePath, { recursive: true, force: true });
                         } else {
