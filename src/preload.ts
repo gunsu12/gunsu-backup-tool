@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
         update: (connection: any) => ipcRenderer.invoke('update-connection', connection),
         delete: (id: string) => ipcRenderer.invoke('delete-connection', id),
         test: (connection: any) => ipcRenderer.invoke('test-connection', connection),
+        fetchDatabases: (connectionId: string) => ipcRenderer.invoke('fetch-databases', connectionId),
     },
     schedules: {
         getAll: () => ipcRenderer.invoke('get-schedules'),
@@ -19,7 +20,11 @@ contextBridge.exposeInMainWorld('api', {
         getAll: () => ipcRenderer.invoke('get-history'),
         clear: () => ipcRenderer.invoke('clear-history'),
     },
+    settings: {
+        getTheme: () => ipcRenderer.invoke('get-theme'),
+        setTheme: (theme: string) => ipcRenderer.invoke('set-theme', theme),
+    },
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     openFolder: (path: string) => ipcRenderer.invoke('open-folder', path),
-    restoreBackup: (filePath: string, targetConnection: any) => ipcRenderer.invoke('restore-backup', filePath, targetConnection),
+    restoreBackup: (filePath: string, targetConnection: any, targetDatabase: string) => ipcRenderer.invoke('restore-backup', filePath, targetConnection, targetDatabase),
 });

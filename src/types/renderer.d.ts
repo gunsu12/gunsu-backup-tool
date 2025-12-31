@@ -7,6 +7,7 @@ export interface IElectronAPI {
         update: (connection: DatabaseConnection) => Promise<DatabaseConnection>;
         delete: (id: string) => Promise<boolean>;
         test: (connection: Omit<DatabaseConnection, 'id' | 'createdAt'>) => Promise<{ success: boolean; message: string }>;
+        fetchDatabases: (connectionId: string) => Promise<{ success: boolean; databases: string[]; message?: string }>;
     };
     schedules: {
         getAll: () => Promise<BackupSchedule[]>;
@@ -19,9 +20,13 @@ export interface IElectronAPI {
         getAll: () => Promise<any[]>;
         clear: () => Promise<boolean>;
     };
+    settings: {
+        getTheme: () => Promise<'light' | 'dark'>;
+        setTheme: (theme: 'light' | 'dark') => Promise<void>;
+    };
     selectFolder: () => Promise<string | null>;
     openFolder: (path: string) => Promise<void>;
-    restoreBackup: (filePath: string, targetConnection: DatabaseConnection) => Promise<{ success: boolean; error?: string }>;
+    restoreBackup: (filePath: string, targetConnection: DatabaseConnection, database: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {

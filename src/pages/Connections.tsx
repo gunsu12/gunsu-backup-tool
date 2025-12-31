@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Database, Plus, Trash2, Server, Save, X, CheckCircle2, XCircle, Loader2, Edit2 } from 'lucide-react';
 import { DatabaseConnection } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import clsx from 'clsx';
 
 const Connections = () => {
+    const { theme } = useTheme();
     const [connections, setConnections] = useState<DatabaseConnection[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [editingConnection, setEditingConnection] = useState<DatabaseConnection | null>(null);
@@ -15,7 +18,6 @@ const Connections = () => {
         port: 3306,
         username: 'root',
         password: '',
-        database: '',
         binPath: ''
     });
 
@@ -37,7 +39,6 @@ const Connections = () => {
             port: connection.port,
             username: connection.username,
             password: connection.password || '',
-            database: connection.database,
             binPath: connection.binPath || ''
         });
         setTestResult(null);
@@ -93,7 +94,6 @@ const Connections = () => {
                 port: 3306,
                 username: 'root',
                 password: '',
-                database: '',
                 binPath: ''
             });
             setTestResult(null);
@@ -114,7 +114,6 @@ const Connections = () => {
             port: 3306,
             username: 'root',
             password: '',
-            database: '',
             binPath: ''
         });
     };
@@ -123,8 +122,8 @@ const Connections = () => {
         <div className="max-w-7xl mx-auto p-8">
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-white mb-2">Connections</h2>
-                    <p className="text-gray-400">Manage your database connections</p>
+                    <h2 className={clsx("text-3xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-gray-900")}>Connections</h2>
+                    <p className={clsx(theme === 'dark' ? "text-gray-400" : "text-gray-500")}>Manage your database connections</p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
@@ -136,23 +135,32 @@ const Connections = () => {
             </div>
 
             {showForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-white">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                    <div className={clsx(
+                        "border rounded-2xl p-6 w-full max-w-2xl my-8 max-h-[90vh] overflow-y-auto",
+                        theme === 'dark' ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"
+                    )}>
+                        <div className={clsx(
+                            "flex justify-between items-center mb-6 pb-2 -mt-2 pt-2 -mx-6 px-6",
+                            theme === 'dark' ? "bg-gray-900" : "bg-white"
+                        )}>
+                            <h3 className={clsx("text-xl font-bold", theme === 'dark' ? "text-white" : "text-gray-900")}>
                                 {editingConnection ? 'Edit Connection' : 'New Connection'}
                             </h3>
-                            <button onClick={handleCloseForm} className="text-gray-400 hover:text-white">
+                            <button onClick={handleCloseForm} className={clsx(theme === 'dark' ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900")}>
                                 <X size={20} />
                             </button>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
+                                <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Name</label>
                                 <input
                                     type="text"
                                     required
-                                    className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                    className={clsx(
+                                        "w-full rounded-lg p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none",
+                                        theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
+                                    )}
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                                     placeholder="Production DB"
@@ -160,9 +168,12 @@ const Connections = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Type</label>
+                                    <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Type</label>
                                     <select
-                                        className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white outline-none"
+                                        className={clsx(
+                                            "w-full rounded-lg p-2.5 outline-none",
+                                            theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
+                                        )}
                                         value={formData.type}
                                         onChange={e => setFormData({ ...formData, type: e.target.value })}
                                     >
@@ -172,54 +183,54 @@ const Connections = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Host</label>
+                                    <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Host</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white outline-none"
+                                        className={clsx(
+                                            "w-full rounded-lg p-2.5 outline-none",
+                                            theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
+                                        )}
                                         value={formData.host}
                                         onChange={e => setFormData({ ...formData, host: e.target.value })}
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Port</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white outline-none"
-                                        value={formData.port}
-                                        onChange={e => setFormData({ ...formData, port: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Database</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white outline-none"
-                                        value={formData.database}
-                                        onChange={e => setFormData({ ...formData, database: e.target.value })}
-                                    />
-                                </div>
+                            <div>
+                                <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Port</label>
+                                <input
+                                    type="number"
+                                    required
+                                    className={clsx(
+                                        "w-full rounded-lg p-2.5 outline-none",
+                                        theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
+                                    )}
+                                    value={formData.port}
+                                    onChange={e => setFormData({ ...formData, port: parseInt(e.target.value) })}
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Username</label>
+                                    <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Username</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white outline-none"
+                                        className={clsx(
+                                            "w-full rounded-lg p-2.5 outline-none",
+                                            theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
+                                        )}
                                         value={formData.username}
                                         onChange={e => setFormData({ ...formData, username: e.target.value })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                                    <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Password</label>
                                     <input
                                         type="password"
-                                        className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white outline-none"
+                                        className={clsx(
+                                            "w-full rounded-lg p-2.5 outline-none",
+                                            theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
+                                        )}
                                         value={formData.password}
                                         onChange={e => setFormData({ ...formData, password: e.target.value })}
                                     />
@@ -227,24 +238,30 @@ const Connections = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Binary Tools Path (Optional)</label>
+                                <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Binary Tools Path (Optional)</label>
                                 <input
                                     type="text"
-                                    className="w-full bg-gray-800 border-gray-700 rounded-lg p-2.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                    className={clsx(
+                                        "w-full rounded-lg p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none",
+                                        theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
+                                    )}
                                     value={formData.binPath}
                                     onChange={e => setFormData({ ...formData, binPath: e.target.value })}
                                     placeholder="e.g. C:\Program Files\PostgreSQL\16\bin"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Path to the folder containing pg_dump or mysqldump.</p>
+                                <p className={clsx("text-xs mt-1", theme === 'dark' ? "text-gray-500" : "text-gray-400")}>Path to the folder containing pg_dump or mysqldump.</p>
                             </div>
 
                             {/* Test Connection Section */}
-                            <div className="pt-4 border-t border-gray-800">
+                            <div className={clsx("pt-4 border-t", theme === 'dark' ? "border-gray-800" : "border-gray-200")}>
                                 <button
                                     type="button"
                                     onClick={handleTestConnection}
                                     disabled={testing}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className={clsx(
+                                        "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                                        theme === 'dark' ? "bg-gray-800 text-white hover:bg-gray-700" : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                                    )}
                                 >
                                     {testing ? (
                                         <>
@@ -278,7 +295,7 @@ const Connections = () => {
                                 <button
                                     type="button"
                                     onClick={handleCloseForm}
-                                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                                    className={clsx("px-4 py-2 transition-colors", theme === 'dark' ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900")}
                                 >
                                     Cancel
                                 </button>
@@ -297,9 +314,12 @@ const Connections = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {connections.length === 0 ? (
-                    <div className="col-span-full bg-gray-900/50 border border-gray-800 rounded-2xl p-12 text-center">
-                        <Database className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-                        <p className="text-gray-500 mb-4">No connections configured</p>
+                    <div className={clsx(
+                        "col-span-full border rounded-2xl p-12 text-center",
+                        theme === 'dark' ? "bg-gray-900/50 border-gray-800" : "bg-white border-gray-200"
+                    )}>
+                        <Database className={clsx("w-16 h-16 mx-auto mb-4", theme === 'dark' ? "text-gray-700" : "text-gray-300")} />
+                        <p className={clsx("mb-4", theme === 'dark' ? "text-gray-500" : "text-gray-400")}>No connections configured</p>
                         <button
                             onClick={() => setShowForm(true)}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
@@ -309,7 +329,10 @@ const Connections = () => {
                     </div>
                 ) : (
                     connections.map(conn => (
-                        <div key={conn.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-blue-500/50 transition-colors group">
+                        <div key={conn.id} className={clsx(
+                            "border rounded-xl p-6 hover:border-blue-500/50 transition-colors group",
+                            theme === 'dark' ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"
+                        )}>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="p-3 bg-blue-500/10 rounded-lg text-blue-400">
                                     <Database size={24} />
@@ -317,27 +340,29 @@ const Connections = () => {
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
                                     <button
                                         onClick={() => handleEdit(conn)}
-                                        className="text-gray-500 hover:text-blue-400"
+                                        className={clsx(theme === 'dark' ? "text-gray-500 hover:text-blue-400" : "text-gray-400 hover:text-blue-500")}
                                     >
                                         <Edit2 size={20} />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(conn.id)}
-                                        className="text-gray-500 hover:text-red-400"
+                                        className={clsx(theme === 'dark' ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500")}
                                     >
                                         <Trash2 size={20} />
                                     </button>
                                 </div>
                             </div>
-                            <h3 className="text-lg font-bold text-white mb-1">{conn.name}</h3>
-                            <div className="space-y-2 text-sm text-gray-400">
+                            <h3 className={clsx("text-lg font-bold mb-1", theme === 'dark' ? "text-white" : "text-gray-900")}>{conn.name}</h3>
+                            <div className={clsx("space-y-2 text-sm", theme === 'dark' ? "text-gray-400" : "text-gray-500")}>
                                 <div className="flex items-center gap-2">
                                     <Server size={14} />
                                     <span>{conn.host}:{conn.port}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="uppercase text-xs font-bold bg-gray-800 px-2 py-0.5 rounded">{conn.type}</span>
-                                    <span>{conn.database}</span>
+                                    <span className={clsx(
+                                        "uppercase text-xs font-bold px-2 py-0.5 rounded",
+                                        theme === 'dark' ? "bg-gray-800" : "bg-gray-100"
+                                    )}>{conn.type}</span>
                                 </div>
                             </div>
                         </div>

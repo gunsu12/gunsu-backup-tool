@@ -4,13 +4,15 @@ interface BackupStore {
     connections: any[];
     schedules: any[];
     history: any[];
+    theme: 'dark' | 'light';
 }
 
 const store = new Store<BackupStore>({
     defaults: {
         connections: [],
         schedules: [],
-        history: []
+        history: [],
+        theme: 'dark'
     }
 });
 

@@ -28,7 +28,7 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
 
     // Generate backup filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const filename = `${connection.database}_${timestamp}.sql`;
+    const filename = `${schedule.database}_${timestamp}.sql`;
     const backupFile = path.join(schedule.backupPath, filename);
 
     console.log(`Backing up to: ${backupFile}`);
@@ -37,12 +37,12 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
         let finalBackupPath = backupFile;
 
         if (connection.type === 'mysql') {
-            await backupMySQL(connection, backupFile);
+            await backupMySQL(connection, schedule.database, backupFile);
         } else if (connection.type === 'postgres') {
-            await backupPostgreSQL(connection, backupFile);
+            await backupPostgreSQL(connection, schedule.database, backupFile);
         } else if (connection.type === 'mongodb') {
             const mongodbDir = path.join(schedule.backupPath, `mongodb_${timestamp}`);
-            await backupMongoDB(connection, schedule.backupPath, timestamp);
+            await backupMongoDB(connection, schedule.database, schedule.backupPath, timestamp);
             finalBackupPath = mongodbDir;
         } else {
             throw new Error(`Unsupported database type: ${connection.type}`);
@@ -54,7 +54,7 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
             const AdmZip = require('adm-zip');
             const zip = new AdmZip();
 
-            const zipFilename = (connection.type === 'mongodb' ? `mongodb_${timestamp}` : `${connection.database}_${timestamp}.sql`) + '.zip';
+            const zipFilename = (connection.type === 'mongodb' ? `mongodb_${timestamp}` : `${schedule.database}_${timestamp}.sql`) + '.zip';
             const zipPath = path.join(schedule.backupPath, zipFilename);
 
             const stats = await fs.stat(finalBackupPath);
@@ -109,7 +109,7 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
     }
 };
 
-const backupMySQL = async (connection: DatabaseConnection, backupFile: string): Promise<void> => {
+const backupMySQL = async (connection: DatabaseConnection, database: string, backupFile: string): Promise<void> => {
     const mysqldump = require('mysqldump');
 
     await mysqldump({
@@ -117,7 +117,7 @@ const backupMySQL = async (connection: DatabaseConnection, backupFile: string): 
             host: connection.host,
             user: connection.username,
             password: connection.password || '',
-            database: connection.database,
+            database: database,
             port: connection.port,
         },
         dumpToFile: backupFile,
@@ -138,24 +138,24 @@ const getBinaryPath = (binName: string, connectionPath?: string): string => {
     return bundledPath;
 };
 
-const backupPostgreSQL = async (connection: DatabaseConnection, backupFile: string): Promise<void> => {
+const backupPostgreSQL = async (connection: DatabaseConnection, database: string, backupFile: string): Promise<void> => {
     const env = {
         ...process.env,
         PGPASSWORD: connection.password || ''
     };
 
     const bin = getBinaryPath('pg_dump', connection.binPath);
-    const command = `"${bin}" -h ${connection.host} -p ${connection.port} -U ${connection.username} -d ${connection.database} -f "${backupFile}"`;
+    const command = `"${bin}" -h ${connection.host} -p ${connection.port} -U ${connection.username} -d ${database} -f "${backupFile}"`;
 
     await execAsync(command, { env });
 };
 
-const backupMongoDB = async (connection: DatabaseConnection, backupPath: string, timestamp: string): Promise<void> => {
+const backupMongoDB = async (connection: DatabaseConnection, database: string, backupPath: string, timestamp: string): Promise<void> => {
     const auth = connection.username ? `-u ${connection.username} -p ${connection.password}` : '';
     const outputDir = path.join(backupPath, `mongodb_${timestamp}`);
 
     const bin = getBinaryPath('mongodump', connection.binPath);
-    const command = `"${bin}" --host ${connection.host}:${connection.port} ${auth} --db ${connection.database} --out "${outputDir}"`;
+    const command = `"${bin}" --host ${connection.host}:${connection.port} ${auth} --db ${database} --out "${outputDir}"`;
 
     await execAsync(command);
 };

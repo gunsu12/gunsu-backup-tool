@@ -34,8 +34,8 @@ export const registerSchedule = (scheduleItem: BackupSchedule) => {
 
     const jobs: schedule.Job[] = [];
 
-    if (scheduleItem.frequency === 'multiple-daily' && scheduleItem.times) {
-        // Register multiple jobs for each time
+    if (scheduleItem.frequency === 'daily' && scheduleItem.times && scheduleItem.times.length > 0) {
+        // Register multiple jobs for each time (daily frequency with multiple times)
         scheduleItem.times.forEach((time, index) => {
             const cronExpression = buildCronExpression({ ...scheduleItem, time });
             console.log(`Registering schedule "${scheduleItem.name}" [${index + 1}/${scheduleItem.times!.length}] with cron: ${cronExpression}`);

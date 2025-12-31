@@ -19,8 +19,8 @@ const getBinaryPath = (binName: string, connectionPath?: string): string => {
     return bundledPath;
 };
 
-export const restoreBackup = async (filePath: string, connection: DatabaseConnection): Promise<void> => {
-    console.log(`Starting restore for ${connection.database} from ${filePath}`);
+export const restoreBackup = async (filePath: string, connection: DatabaseConnection, database: string): Promise<void> => {
+    console.log(`Starting restore for ${database} from ${filePath}`);
 
     // Check if file exists
     try {
@@ -75,12 +75,12 @@ export const restoreBackup = async (filePath: string, connection: DatabaseConnec
 
     try {
         if (connection.type === 'mysql') {
-            await restoreMySQL(connection, targetFile);
+            await restoreMySQL(connection, database, targetFile);
         } else if (connection.type === 'postgres') {
-            await restorePostgreSQL(connection, targetFile);
+            await restorePostgreSQL(connection, database, targetFile);
         } else if (connection.type === 'mongodb') {
             // For MongoDB, targetFile might be a directory if it was a folder dump
-            await restoreMongoDB(connection, targetFile);
+            await restoreMongoDB(connection, database, targetFile);
         } else {
             throw new Error(`Unsupported database type: ${connection.type}`);
         }
@@ -97,7 +97,7 @@ export const restoreBackup = async (filePath: string, connection: DatabaseConnec
     }
 };
 
-const restoreMySQL = async (connection: DatabaseConnection, backupFile: string): Promise<void> => {
+const restoreMySQL = async (connection: DatabaseConnection, database: string, backupFile: string): Promise<void> => {
     // improved: pure Node.js implementation using mysql-import
     // This avoids dependency on mysql.exe being in the system PATH
     const Importer = require('mysql-import');
@@ -108,7 +108,7 @@ const restoreMySQL = async (connection: DatabaseConnection, backupFile: string):
         port: connection.port,
         user: connection.username,
         password: connection.password || '',
-        database: connection.database
+        database: database
     });
 
     try {
@@ -121,7 +121,7 @@ const restoreMySQL = async (connection: DatabaseConnection, backupFile: string):
     }
 };
 
-const restorePostgreSQL = async (connection: DatabaseConnection, backupFile: string): Promise<void> => {
+const restorePostgreSQL = async (connection: DatabaseConnection, database: string, backupFile: string): Promise<void> => {
     const env = {
         ...process.env,
         PGPASSWORD: connection.password || ''
@@ -129,12 +129,12 @@ const restorePostgreSQL = async (connection: DatabaseConnection, backupFile: str
 
     const bin = getBinaryPath('psql', connection.binPath);
     // psql -h host -p port -U user -d db -f file.sql
-    const command = `"${bin}" -h ${connection.host} -p ${connection.port} -U ${connection.username} -d ${connection.database} -f "${backupFile}"`;
+    const command = `"${bin}" -h ${connection.host} -p ${connection.port} -U ${connection.username} -d ${database} -f "${backupFile}"`;
 
     await execAsync(command, { env });
 };
 
-const restoreMongoDB = async (connection: DatabaseConnection, backupPath: string): Promise<void> => {
+const restoreMongoDB = async (connection: DatabaseConnection, database: string, backupPath: string): Promise<void> => {
     // mongorestore --host ... --db ... <directory_or_file>
     const auth = connection.username ? `-u ${connection.username} -p ${connection.password}` : '';
     const bin = getBinaryPath('mongorestore', connection.binPath);
@@ -162,7 +162,7 @@ const restoreMongoDB = async (connection: DatabaseConnection, backupPath: string
         // So restore should point to that dir.
     }
 
-    const command = `"${bin}" --host ${connection.host}:${connection.port} ${auth} --db ${connection.database} --drop ${args}`;
+    const command = `"${bin}" --host ${connection.host}:${connection.port} ${auth} --db ${database} --drop ${args}`;
     // Added --drop to ensure clean state before restore (optional but recommended for full restore)
 
     await execAsync(command);

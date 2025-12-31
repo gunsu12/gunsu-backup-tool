@@ -1,12 +1,17 @@
 <!doctype html>
-<html>
+<html class="dark">
 
 <head>
   <meta charset="UTF-8" />
   <title>Database Backup Tool</title>
+  <style>
+    /* Prevent flash of white before CSS loads */
+    html.dark { background-color: #030712; }
+    html.light { background-color: #f3f4f6; }
+  </style>
 </head>
 
-<body>
+<body style="margin: 0; background-color: inherit;">
   <div id="root"></div>
   <script type="module" src="/src/renderer.tsx"></script>
 </body>

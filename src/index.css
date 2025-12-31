@@ -1,1 +1,44 @@
 @import "tailwindcss";
+
+/* Theme variables */
+:root {
+    --bg-primary: #030712;
+    --bg-secondary: #111827;
+    --bg-tertiary: #1f2937;
+    --text-primary: #ffffff;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --border-color: #1f2937;
+    --card-bg: #111827;
+}
+
+:root.light {
+    --bg-primary: #f3f4f6;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e5e7eb;
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --text-muted: #6b7280;
+    --border-color: #e5e7eb;
+    --card-bg: #ffffff;
+}
+
+/* Smooth theme transitions - only on color properties */
+html, body, main, aside, div, nav, section, article {
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+/* Prevent flash of unstyled content */
+html:not(.dark):not(.light) {
+    background-color: #030712;
+    color: #ffffff;
+}
+
+/* Set initial background on html to prevent white flash */
+html.dark {
+    background-color: #030712;
+}
+
+html.light {
+    background-color: #f3f4f6;
+}

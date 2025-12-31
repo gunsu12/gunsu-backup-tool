@@ -3,7 +3,7 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import store from './services/store.service';
 import { DatabaseConnection, BackupSchedule } from './types/index';
-import { testConnection } from './services/db.service';
+import { testConnection, fetchDatabases } from './services/db.service';
 import { initializeScheduler, registerSchedule, cancelSchedule } from './services/scheduler.service';
 import { performBackup } from './services/backup.service';
 import { restoreBackup } from './services/restore.service';
@@ -92,6 +92,15 @@ ipcMain.handle('test-connection', async (_, connection: Omit<DatabaseConnection,
   return await testConnection(connection);
 });
 
+ipcMain.handle('fetch-databases', async (_, connectionId: string) => {
+  const connections = store.get('connections') as DatabaseConnection[];
+  const connection = connections.find(c => c.id === connectionId);
+  if (!connection) {
+    return { success: false, databases: [], message: 'Connection not found.' };
+  }
+  return await fetchDatabases(connection);
+});
+
 ipcMain.handle('delete-connection', (_, id: string) => {
   const connections = store.get('connections');
   store.set('connections', connections.filter((c: DatabaseConnection) => c.id !== id));
@@ -152,9 +161,9 @@ ipcMain.handle('run-backup', async (_, schedule: BackupSchedule) => {
   }
 });
 
-ipcMain.handle('restore-backup', async (_, filePath: string, targetConnection: DatabaseConnection) => {
+ipcMain.handle('restore-backup', async (_, filePath: string, targetConnection: DatabaseConnection, targetDatabase: string) => {
   try {
-    await restoreBackup(filePath, targetConnection);
+    await restoreBackup(filePath, targetConnection, targetDatabase);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -168,6 +177,16 @@ ipcMain.handle('get-history', () => {
 
 ipcMain.handle('clear-history', () => {
   store.set('history', []);
+  return true;
+});
+
+// Theme/Settings handlers
+ipcMain.handle('get-theme', () => {
+  return store.get('theme') || 'dark';
+});
+
+ipcMain.handle('set-theme', (_, theme: string) => {
+  store.set('theme', theme);
   return true;
 });
 
