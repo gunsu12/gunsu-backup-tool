@@ -28,6 +28,7 @@
     "@electron-forge/plugin-vite": "^7.10.2",
     "@electron/fuses": "^1.8.0",
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/archiver": "^7.0.0",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/node-schedule": "^2.1.8",
     "@types/pg": "^8.16.0",
@@ -47,6 +48,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
     "clsx": "^2.1.1",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^11.0.2",
@@ -61,6 +63,7 @@
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.11.0",
     "tailwind-merge": "^3.4.0",
+    "unzipper": "^0.12.3",
     "zustand": "^5.0.9"
   }
 }

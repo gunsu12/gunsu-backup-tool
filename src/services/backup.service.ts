@@ -1,11 +1,11 @@
 import { BackupSchedule, DatabaseConnection } from '../types';
 import store from './store.service';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-
-const execAsync = promisify(exec);
+import { createWriteStream, createReadStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import { createGzip } from 'node:zlib';
 
 export const performBackup = async (schedule: BackupSchedule): Promise<void> => {
     console.log(`Starting backup for schedule: ${schedule.name}`);
@@ -48,33 +48,49 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
             throw new Error(`Unsupported database type: ${connection.type}`);
         }
 
-        // Handle compression
+        // Handle compression - use streaming for large files
         if (schedule.compress) {
             console.log(`Compressing backup: ${finalBackupPath}`);
-            const AdmZip = require('adm-zip');
-            const zip = new AdmZip();
-
-            const zipFilename = (connection.type === 'mongodb' ? `mongodb_${timestamp}` : `${schedule.database}_${timestamp}.sql`) + '.zip';
-            const zipPath = path.join(schedule.backupPath, zipFilename);
-
+            
             const stats = await fs.stat(finalBackupPath);
+            
             if (stats.isDirectory()) {
-                zip.addLocalFolder(finalBackupPath);
-            } else {
-                zip.addLocalFile(finalBackupPath);
-            }
-
-            zip.writeZip(zipPath);
-
-            // Delete original file/folder after compression
-            if (stats.isDirectory()) {
+                // For directories (MongoDB), use archiver with streaming
+                const archiver = require('archiver');
+                const zipFilename = `mongodb_${timestamp}.zip`;
+                const zipPath = path.join(schedule.backupPath, zipFilename);
+                
+                await new Promise<void>((resolve, reject) => {
+                    const output = createWriteStream(zipPath);
+                    const archive = archiver('zip', { zlib: { level: 6 } });
+                    
+                    output.on('close', () => resolve());
+                    archive.on('error', reject);
+                    
+                    archive.pipe(output);
+                    archive.directory(finalBackupPath, false);
+                    archive.finalize();
+                });
+                
+                // Delete original folder after compression
                 await fs.rm(finalBackupPath, { recursive: true, force: true });
+                finalBackupPath = zipPath;
             } else {
+                // For single files, use gzip streaming (more efficient for large files)
+                const gzipPath = finalBackupPath + '.gz';
+                
+                await pipeline(
+                    createReadStream(finalBackupPath),
+                    createGzip(),
+                    createWriteStream(gzipPath)
+                );
+                
+                // Delete original file after compression
                 await fs.unlink(finalBackupPath);
+                finalBackupPath = gzipPath;
             }
 
-            finalBackupPath = zipPath;
-            console.log(`Compression completed: ${zipPath}`);
+            console.log(`Compression completed: ${finalBackupPath}`);
         }
 
         // Save to history
@@ -110,17 +126,63 @@ export const performBackup = async (schedule: BackupSchedule): Promise<void> => 
 };
 
 const backupMySQL = async (connection: DatabaseConnection, database: string, backupFile: string): Promise<void> => {
-    const mysqldump = require('mysqldump');
+    // Use native mysqldump via spawn for streaming (handles large databases)
+    const bin = getBinaryPath('mysqldump', connection.binPath);
+    
+    return new Promise((resolve, reject) => {
+        const args = [
+            `-h${connection.host}`,
+            `-P${connection.port}`,
+            `-u${connection.username}`,
+            `--single-transaction`,
+            `--quick`,
+            `--lock-tables=false`,
+            database
+        ];
 
-    await mysqldump({
-        connection: {
-            host: connection.host,
-            user: connection.username,
-            password: connection.password || '',
-            database: database,
-            port: connection.port,
-        },
-        dumpToFile: backupFile,
+        // Add password if provided
+        if (connection.password) {
+            args.splice(3, 0, `-p${connection.password}`);
+        }
+
+        const mysqldumpProcess = spawn(bin, args, {
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        const writeStream = createWriteStream(backupFile);
+        
+        mysqldumpProcess.stdout.pipe(writeStream);
+
+        let stderrData = '';
+        mysqldumpProcess.stderr.on('data', (data) => {
+            stderrData += data.toString();
+        });
+
+        mysqldumpProcess.on('close', (code) => {
+            writeStream.end();
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`mysqldump failed with code ${code}: ${stderrData}`));
+            }
+        });
+
+        mysqldumpProcess.on('error', (err) => {
+            writeStream.end();
+            // Fallback to mysqldump npm package for systems without native binary
+            console.log('Native mysqldump not found, using npm package...');
+            const mysqldump = require('mysqldump');
+            mysqldump({
+                connection: {
+                    host: connection.host,
+                    user: connection.username,
+                    password: connection.password || '',
+                    database: database,
+                    port: connection.port,
+                },
+                dumpToFile: backupFile,
+            }).then(resolve).catch(reject);
+        });
     });
 };
 
@@ -139,25 +201,86 @@ const getBinaryPath = (binName: string, connectionPath?: string): string => {
 };
 
 const backupPostgreSQL = async (connection: DatabaseConnection, database: string, backupFile: string): Promise<void> => {
-    const env = {
-        ...process.env,
-        PGPASSWORD: connection.password || ''
-    };
-
     const bin = getBinaryPath('pg_dump', connection.binPath);
-    const command = `"${bin}" -h ${connection.host} -p ${connection.port} -U ${connection.username} -d ${database} -f "${backupFile}"`;
+    
+    return new Promise((resolve, reject) => {
+        const args = [
+            `-h`, connection.host,
+            `-p`, connection.port.toString(),
+            `-U`, connection.username,
+            `-d`, database,
+            `-f`, backupFile
+        ];
 
-    await execAsync(command, { env });
+        const env = {
+            ...process.env,
+            PGPASSWORD: connection.password || ''
+        };
+
+        const pgDumpProcess = spawn(bin, args, {
+            env,
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        let stderrData = '';
+        pgDumpProcess.stderr.on('data', (data) => {
+            stderrData += data.toString();
+        });
+
+        pgDumpProcess.on('close', (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`pg_dump failed with code ${code}: ${stderrData}`));
+            }
+        });
+
+        pgDumpProcess.on('error', (err) => {
+            reject(new Error(`pg_dump error: ${err.message}`));
+        });
+    });
 };
 
 const backupMongoDB = async (connection: DatabaseConnection, database: string, backupPath: string, timestamp: string): Promise<void> => {
-    const auth = connection.username ? `-u ${connection.username} -p ${connection.password}` : '';
     const outputDir = path.join(backupPath, `mongodb_${timestamp}`);
-
     const bin = getBinaryPath('mongodump', connection.binPath);
-    const command = `"${bin}" --host ${connection.host}:${connection.port} ${auth} --db ${database} --out "${outputDir}"`;
+    
+    return new Promise((resolve, reject) => {
+        const args = [
+            `--host`, `${connection.host}:${connection.port}`,
+            `--db`, database,
+            `--out`, outputDir
+        ];
 
-    await execAsync(command);
+        // Add auth if provided
+        if (connection.username) {
+            args.push(`-u`, connection.username);
+            if (connection.password) {
+                args.push(`-p`, connection.password);
+            }
+        }
+
+        const mongodumpProcess = spawn(bin, args, {
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        let stderrData = '';
+        mongodumpProcess.stderr.on('data', (data) => {
+            stderrData += data.toString();
+        });
+
+        mongodumpProcess.on('close', (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`mongodump failed with code ${code}: ${stderrData}`));
+            }
+        });
+
+        mongodumpProcess.on('error', (err) => {
+            reject(new Error(`mongodump error: ${err.message}`));
+        });
+    });
 };
 
 export const cleanupOldBackups = async (schedule: BackupSchedule): Promise<void> => {

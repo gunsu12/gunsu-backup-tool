@@ -23,10 +23,7 @@
     --card-bg: #ffffff;
 }
 
-/* Smooth theme transitions - only on color properties */
-html, body, main, aside, div, nav, section, article {
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
-}
+/* No transitions for instant navigation */
 
 /* Prevent flash of unstyled content */
 html:not(.dark):not(.light) {

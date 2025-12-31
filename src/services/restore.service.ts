@@ -1,12 +1,12 @@
 
 import { DatabaseConnection } from '../types';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
 import os from 'node:os';
-
-const execAsync = promisify(exec);
+import { createGunzip } from 'node:zlib';
+import { pipeline } from 'node:stream/promises';
 
 const getBinaryPath = (binName: string, connectionPath?: string): string => {
     // 1. If user provided a path, use it
@@ -32,14 +32,38 @@ export const restoreBackup = async (filePath: string, connection: DatabaseConnec
     let targetFile = filePath;
     let tempDir = '';
 
+    // Handle gzip files (.sql.gz)
+    if (filePath.endsWith('.gz')) {
+        console.log('Detected gzip archive, extracting...');
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'db-restore-'));
+        
+        // Remove .gz extension for the output file
+        const outputName = path.basename(filePath).slice(0, -3);
+        targetFile = path.join(tempDir, outputName);
+        
+        // Use streaming to extract gzip
+        await pipeline(
+            createReadStream(filePath),
+            createGunzip(),
+            createWriteStream(targetFile)
+        );
+        
+        console.log(`Extracted to ${targetFile}`);
+    }
     // Handle ZIP files
-    if (filePath.endsWith('.zip')) {
+    else if (filePath.endsWith('.zip')) {
         console.log('Detected ZIP archive, extracting...');
-        const AdmZip = require('adm-zip');
-        const zip = new AdmZip(filePath);
+        const unzipper = require('unzipper');
 
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'db-restore-'));
-        zip.extractAllTo(tempDir, true);
+        
+        // Use streaming extraction
+        await new Promise<void>((resolve, reject) => {
+            createReadStream(filePath)
+                .pipe(unzipper.Extract({ path: tempDir }))
+                .on('close', resolve)
+                .on('error', reject);
+        });
 
         // Find the actual backup file/folder
         const files = await fs.readdir(tempDir);
@@ -60,7 +84,7 @@ export const restoreBackup = async (filePath: string, connection: DatabaseConnec
                 targetFile = path.join(tempDir, sqlFile);
             } else {
                 // 3. Look for mongodb folder
-                const mongoDir = validFiles.find(f => f.startsWith('mongodb_') || !path.extname(f)); // Folder often has no extension
+                const mongoDir = validFiles.find(f => f.startsWith('mongodb_') || !path.extname(f));
                 if (mongoDir) {
                     targetFile = path.join(tempDir, mongoDir);
                 } else {
@@ -122,48 +146,86 @@ const restoreMySQL = async (connection: DatabaseConnection, database: string, ba
 };
 
 const restorePostgreSQL = async (connection: DatabaseConnection, database: string, backupFile: string): Promise<void> => {
-    const env = {
-        ...process.env,
-        PGPASSWORD: connection.password || ''
-    };
-
     const bin = getBinaryPath('psql', connection.binPath);
-    // psql -h host -p port -U user -d db -f file.sql
-    const command = `"${bin}" -h ${connection.host} -p ${connection.port} -U ${connection.username} -d ${database} -f "${backupFile}"`;
+    
+    return new Promise((resolve, reject) => {
+        const args = [
+            `-h`, connection.host,
+            `-p`, connection.port.toString(),
+            `-U`, connection.username,
+            `-d`, database,
+            `-f`, backupFile
+        ];
 
-    await execAsync(command, { env });
+        const env = {
+            ...process.env,
+            PGPASSWORD: connection.password || ''
+        };
+
+        const psqlProcess = spawn(bin, args, {
+            env,
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        let stderrData = '';
+        psqlProcess.stderr.on('data', (data) => {
+            stderrData += data.toString();
+        });
+
+        psqlProcess.on('close', (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`psql failed with code ${code}: ${stderrData}`));
+            }
+        });
+
+        psqlProcess.on('error', (err) => {
+            reject(new Error(`psql error: ${err.message}`));
+        });
+    });
 };
 
 const restoreMongoDB = async (connection: DatabaseConnection, database: string, backupPath: string): Promise<void> => {
-    // mongorestore --host ... --db ... <directory_or_file>
-    const auth = connection.username ? `-u ${connection.username} -p ${connection.password}` : '';
     const bin = getBinaryPath('mongorestore', connection.binPath);
+    
+    return new Promise(async (resolve, reject) => {
+        const args = [
+            `--host`, `${connection.host}:${connection.port}`,
+            `--db`, database,
+            `--drop`
+        ];
 
-    // If backupPath is a directory (from ZIP buffer or specific folder), pass it directly or use --dir
-    // mongorestore can take the path as argument.
+        // Add auth if provided
+        if (connection.username) {
+            args.push(`-u`, connection.username);
+            if (connection.password) {
+                args.push(`-p`, connection.password);
+            }
+        }
 
-    // Check if backupPath is a file (archive) or directory
-    const stat = await fs.stat(backupPath);
-    let args = '';
+        // Add the backup path (directory or file)
+        args.push(backupPath);
 
-    if (stat.isDirectory()) {
-        // If it's a BSON dump directory
-        args = `"${backupPath}"`;
-    } else {
-        // If it's an archive file (if we supported mongodump --archive) or single BSON?
-        // Our backup service creates a directory `mongodb_...` so we expect a directory.
-        // But if user zipped it, we unzipped it.
-        // If the unzipped path is a directory containing the dump, good.
-        // If it is a file?
+        const mongorestoreProcess = spawn(bin, args, {
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
 
-        args = `"${backupPath}"`;
-        // Use --archive if it is a single file?
-        // Current backup impl for mongo uses --out dir, so result is dir.
-        // So restore should point to that dir.
-    }
+        let stderrData = '';
+        mongorestoreProcess.stderr.on('data', (data) => {
+            stderrData += data.toString();
+        });
 
-    const command = `"${bin}" --host ${connection.host}:${connection.port} ${auth} --db ${database} --drop ${args}`;
-    // Added --drop to ensure clean state before restore (optional but recommended for full restore)
+        mongorestoreProcess.on('close', (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`mongorestore failed with code ${code}: ${stderrData}`));
+            }
+        });
 
-    await execAsync(command);
+        mongorestoreProcess.on('error', (err) => {
+            reject(new Error(`mongorestore error: ${err.message}`));
+        });
+    });
 };

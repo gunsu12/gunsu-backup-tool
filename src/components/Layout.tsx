@@ -9,7 +9,7 @@ const NavItem = ({ to, icon: Icon, children }: { to: string; icon: any; children
         to={to}
         className={({ isActive }) =>
             clsx(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 mb-1 group relative overflow-hidden',
+                'flex items-center gap-3 px-4 py-3 rounded-lg mb-1 group relative overflow-hidden',
                 isActive
                     ? 'bg-blue-600/10 text-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.1)] border border-blue-600/20'
                     : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-100'
@@ -19,7 +19,7 @@ const NavItem = ({ to, icon: Icon, children }: { to: string; icon: any; children
         {({ isActive }) => (
             <>
                 {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r-full" />}
-                <Icon size={20} className={clsx("transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-105")} />
+                <Icon size={20} />
                 <span className="font-medium">{children}</span>
             </>
         )}
