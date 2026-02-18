@@ -55,7 +55,7 @@ const Schedules = () => {
             connectionId: schedule.connectionId,
             database: schedule.database || '',
             name: schedule.name,
-            frequency: schedule.frequency === 'multiple-daily' ? 'daily' : schedule.frequency, // Handle legacy data
+            frequency: (schedule.frequency as string) === 'multiple-daily' ? 'daily' : schedule.frequency, // Handle legacy data
             time: schedule.time,
             times: schedule.times || (schedule.time ? [schedule.time] : ['00:00']),
             dayOfWeek: schedule.dayOfWeek || 0,
@@ -169,11 +169,11 @@ const Schedules = () => {
             setDatabaseError(null);
             return;
         }
-        
+
         setLoadingDatabases(true);
         setDatabaseError(null);
         setDatabases([]);
-        
+
         try {
             const result = await window.api.connections.fetchDatabases(connectionId);
             if (result.success) {
@@ -256,17 +256,25 @@ const Schedules = () => {
                                 <div className="space-y-4">
                                     <h4 className={clsx("text-sm font-bold uppercase tracking-wider pb-2 border-b", theme === 'dark' ? "text-blue-400 border-gray-800" : "text-blue-600 border-gray-200")}>Backup Settings</h4>
                                     <div>
-                                        <label className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}>Schedule Name</label>
+                                        <label
+                                            htmlFor="scheduleName"
+                                            className={clsx("block text-sm font-medium mb-1", theme === 'dark' ? "text-gray-400" : "text-gray-600")}
+                                        >
+                                            Schedule Name
+                                        </label>
                                         <input
+                                            id="scheduleName"
                                             type="text"
                                             required
+                                            autoFocus
                                             className={clsx(
-                                                "w-full rounded-lg p-2.5 outline-none",
+                                                "w-full rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all",
                                                 theme === 'dark' ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-50 border-gray-300 text-gray-900 border"
                                             )}
                                             value={formData.name}
                                             onChange={e => setFormData({ ...formData, name: e.target.value })}
                                             placeholder="Daily Backup"
+                                            autoComplete="off"
                                         />
                                     </div>
                                     <div>
@@ -545,9 +553,9 @@ const Schedules = () => {
                     schedules.map(schedule => (
                         <div key={schedule.id} className={clsx(
                             "border rounded-xl p-6 transition-colors group",
-                            schedule.enabled 
-                                ? theme === 'dark' 
-                                    ? 'bg-gray-900 border-gray-800 hover:border-blue-500/50' 
+                            schedule.enabled
+                                ? theme === 'dark'
+                                    ? 'bg-gray-900 border-gray-800 hover:border-blue-500/50'
                                     : 'bg-white border-gray-200 hover:border-blue-400'
                                 : theme === 'dark'
                                     ? 'bg-gray-900 border-gray-800/50 opacity-60'
